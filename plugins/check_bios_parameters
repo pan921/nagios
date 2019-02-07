@@ -1,0 +1,114 @@
+#!/bin/bash
+#
+LOGFILE=/var/tmp/bios_parameters.log
+
+if [[ ! -a "$LOGFILE" ]]; then
+        echo "BIOS Monitoring Script v1.00"
+        exit 0
+fi
+#
+# Nagios return codes
+STATE_OK=0
+STATE_WARNING=1
+STATE_CRITICAL=2
+STATE_UNKNOWN=3
+STATE_DEPENDENT=4
+#
+cat $LOGFILE | egrep -v "^#|^;" | awk '{ if(NF>0) print $1"="$3 }' >/tmp/param$$.cmd
+
+chmod 755 /tmp/param$$.cmd
+. /tmp/param$$.cmd
+rm -f /tmp/param$$.cmd
+
+RESULT=$STATE_OK
+if [[ $power_management != "maximum_performance" ]]; then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,power_management=$power_management";                         fi
+if [[ $cpu_power_capping != "pstate_0" ]];           then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,cpu_power_capping=$cpu_power_capping";                       fi
+if [[ $energy_efficient_policy != "performance" ]];  then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,energy_efficient_policy=$energy_efficient_policy";           fi
+if [[ $chassis_level_capping != "disabled" ]];       then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,chassis_level_capping=$chassis_level_capping";               fi
+if [[ $sled_level_policy != "chassis_level" ]];      then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,sled_level_policy=$sled_level_policy";                       fi
+if [[ $chassis_level_policy != "throttling" ]];      then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,chassis_level_policy=$chassis_level_policy";                 fi
+if [[ $active_processor_cores != "all_cores" ]];     then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,active_processor_cores=$active_processor_cores";             fi
+if [[ $frequency_ratio != "auto" ]];                 then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,frequency_ratio=$frequency_ratio";                           fi
+if [[ $max_cpuid_value_limit != "disabled" ]];       then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,max_cpuid_value_limit=$max_cpuid_value_limit";               fi
+if [[ $virtualization_technology != "disabled" ]];   then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,virtualization_technology=$virtualization_technology";       fi
+if [[ $qpi_frequency != "auto" ]];                   then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,qpi_frequency=$qpi_frequency";                               fi
+if [[ $turbo_mode != "enabled" ]];                   then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,turbo_mode=$turbo_mode";                                     fi
+if [[ $cstates != "disabled" ]];                     then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,cstates=$cstates";                                           fi
+if [[ $c1e_state != "disabled" ]];                   then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,c1e_state=$c1e_state";                                       fi
+if [[ $c6_state != "disabled" ]];                    then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,c6_state=$c6_state";                                         fi
+if [[ $c7_state != "disabled" ]];                    then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,c7_state=$c7_state";                                         fi
+if [[ $xd_bit_capability != "enabled" ]];            then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,xd_bit_capability=$xd_bit_capability";                       fi
+if [[ $direct_cache_access != "enabled" ]];          then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,direct_cache_access=$direct_cache_access";                   fi
+if [[ $hyperthreading_technology != "disabled" ]];   then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,hyperthreading_technology=$hyperthreading_technology";       fi
+if [[ $adjacent_cache_line_prefetch != "enabled" ]]; then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,adjacent_cache_line_prefetch=$adjacent_cache_line_prefetch"; fi
+if [[ $hardware_prefetcher != "enabled" ]];          then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,hardware_prefetcher=$hardware_prefetcher";                   fi
+if [[ $dcu_streamer_prefetcher != "enabled" ]];      then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,dcu_streamer_prefetcher=$dcu_streamer_prefetcher";           fi
+if [[ $dcu_ip_prefetcher != "enabled" ]];            then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,dcu_ip_prefetcher=$dcu_ip_prefetcher";                       fi
+if [[ $memory_frequency != "auto" ]];                then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,memory_frequency=$memory_frequency";                         fi
+if [[ $memory_turbo_mode != "enabled" ]];            then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,memory_turbo_mode=$memory_turbo_mode";                       fi
+if [[ $memory_throttling_mode != "enabled" ]];       then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,memory_throttling_mode=$memory_throttling_mode";             fi
+if [[ $memory_operating_mode != "optimizer_mode" ]]; then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,memory_operating_mode=$memory_operating_mode";               fi
+if [[ $demand_scrubbing != "enabled" ]];             then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,demand_scrubbing=$demand_scrubbing";                         fi
+if [[ $patrol_scrubbing != "enabled" ]];             then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,patrol_scrubbing=$patrol_scrubbing";                         fi
+if [[ $memory_operating_voltage != "auto" ]];        then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,memory_operating_voltage=$memory_operating_voltage";         fi
+if [[ $numa_support != "disabled" ]];                then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,numa_support=$numa_support";                                 fi
+if [[ $embedded_sata_controller != "off" ]];         then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,embedded_sata_controller=$embedded_sata_controller";         fi
+if [[ $embedded_sata_link_rate != "auto" ]];         then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,embedded_sata_link_rate=$embedded_sata_link_rate";           fi
+if [[ $embedded_sas_controller != "disabled" ]];     then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,embedded_sas_controller=$embedded_sas_controller";           fi
+if [[ $sata_port0 != "off" ]];                       then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,sata_port0=$sata_port0";                                     fi
+if [[ $sata_port1 != "off" ]];                       then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,sata_port1=$sata_port1";                                     fi
+if [[ $sata_port2 != "off" ]];                       then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,sata_port2=$sata_port2";                                     fi
+if [[ $sata_port3 != "off" ]];                       then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,sata_port3=$sata_port3";                                     fi
+if [[ $sata_port4 != "off" ]];                       then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,sata_port4=$sata_port4";                                     fi
+if [[ $sata_port5 != "off" ]];                       then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,sata_port5=$sata_port5";                                     fi
+if [[ $power_saving_features != "enabled" ]];        then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,power_saving_features=$power_saving_features";               fi
+if [[ $hdd_security_erase != "disabled" ]];          then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,hdd_security_erase=$hdd_security_erase";                     fi
+if [[ $nic_enumeration != "onboard" ]];              then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,nic_enumeration=$nic_enumeration";                           fi
+if [[ $pcie_generation != "gen3" ]];                 then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,pcie_generation=$pcie_generation";                           fi
+if [[ $vt_for_direct_io != "disabled" ]];            then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,vt_for_direct_io=$vt_for_direct_io";                         fi
+if [[ $sriov_global_enable != "disabled" ]];         then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,sriov_global_enable=$sriov_global_enable";                   fi
+if [[ $ioat_dma_engine != "disabled" ]];             then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,ioat_dma_engine=$ioat_dma_engine";                           fi
+if [[ $maximum_payload_size != "auto" ]];            then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,maximum_payload_size=$maximum_payload_size";                 fi
+if [[ $embedded_video_controller != "enabled" ]];    then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,embedded_video_controller=$embedded_video_controller";       fi
+if [[ $video_enumeration != "onboard" ]];            then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,video_enumeration=$video_enumeration";                       fi
+if [[ $whea_support != "disabled" ]];                then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,whea_support=$whea_support";                                 fi
+if [[ $reboot_on_wol != "disabled" ]];               then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,reboot_on_wol=$reboot_on_wol";                               fi
+if [[ $embedded_nic1 != "enabled_with_pxe" ]];       then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,embedded_nic1=$embedded_nic1";                               fi
+if [[ $embedded_nic2 != "enabled_without_pxe" ]];    then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,embedded_nic2=$embedded_nic2";                               fi
+if [[ $pcie_slot_aspm != "disabled" ]];              then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,pcie_slot_aspm=$pcie_slot_aspm";                             fi
+if [[ $onboard_lan_aspm != "disabled" ]];            then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,onboard_lan_aspm=$onboard_lan_aspm";                         fi
+if [[ $mezzanine_slot_aspm != "disabled" ]];         then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,mezzanine_slot_aspm=$mezzanine_slot_aspm";                   fi
+if [[ $nbsb_link_aspm != "l1" ]];                    then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,nbsb_link_aspm=$nbsb_link_aspm";                             fi
+if [[ $embedded_usb_controller != "enabled" ]];      then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,embedded_usb_controller=$embedded_usb_controller";           fi
+if [[ $usb_port_with_bmc != "enabled" ]];            then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,usb_port_with_bmc=$usb_port_with_bmc";                       fi
+if [[ $external_usb_port1 != "enabled" ]];           then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,external_usb_port1=$external_usb_port1";                     fi
+if [[ $external_usb_port2 != "enabled" ]];           then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,external_usb_port2=$external_usb_port2";                     fi
+if [[ $internal_usb_connector != "disabled" ]];      then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,internal_usb_connector=$internal_usb_connector";             fi
+if [[ $spread_spectrum != "disabled" ]];             then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,spread_spectrum=$spread_spectrum";                           fi
+if [[ $acpi_spmi_table != "enabled" ]];              then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,acpi_spmi_table=$acpi_spmi_table";                           fi
+if [[ $restore_on_ac_power_loss != "power_off" ]];   then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,restore_on_ac_power_loss=$restore_on_ac_power_loss";         fi
+if [[ $power_button != "enabled" ]];                 then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,power_button=$power_button";                                 fi
+if [[ $event_logging != "enabled" ]];                then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,event_logging=$event_logging";                               fi
+if [[ $nmi_on_error != "enabled" ]];                 then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,nmi_on_error=$nmi_on_error";                                 fi
+if [[ $ipv6_mode != "disabled" ]];                   then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,ipv6_mode=$ipv6_mode";                                       fi
+if [[ $ipv6_autoconfig != "disabled" ]];             then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,ipv6_autoconfig=$ipv6_autoconfig";                           fi
+if [[ $remote_access != "enabled" ]];                then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,remote_access=$remote_access";                               fi
+if [[ $serial_port_number != "com2_as_sol" ]];       then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,serial_port_number=$serial_port_number";                     fi
+if [[ $serial_port_address != "3f8h_2f8h" ]];        then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,serial_port_address=$serial_port_address";                   fi
+if [[ $serial_port_mode != "115200_8n1" ]];          then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,serial_port_mode=$serial_port_mode";                         fi
+if [[ $flow_control != "none" ]];                    then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,flow_control=$flow_control";                                 fi
+if [[ $redirection_after_bios_post != "always" ]];   then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,redirection_after_bios_post=$redirection_after_bios_post";   fi
+if [[ $terminal_type != "ansi" ]];                   then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,terminal_type=$terminal_type";                               fi
+if [[ $vtutf8_combo_key_support != "enabled" ]];     then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,vtutf8_combo_key_support=$vtutf8_combo_key_support";         fi
+if [[ $quiet_boot != "enabled" ]];                   then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,quiet_boot=$quiet_boot";                                     fi
+if [[ $pause_on_errors != "disabled" ]];             then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,pause_on_errors=$pause_on_errors";                           fi
+if [[ $force_pxe_boot_only != "disabled" ]];         then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,force_pxe_boot_only=$force_pxe_boot_only";                   fi
+### if [[ $boot_mode != "os" ]];                     then RESULT=$STATE_WARNING; MESSAGE="$MESSAGE,boot_mode=$boot_mode";                                       fi
+
+if [[ $RESULT -eq $STATE_OK ]]; then
+    echo "BIOS Parameters OK "
+else
+    echo "BIOS Parameters changed|$MESSAGE"
+fi
+
+exit $RESULT

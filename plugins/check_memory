@@ -3,7 +3,7 @@
 # Script to check memory usage on Linux. Ignores memory used by disk cache.
 #
 # Requires the bc command
-#                                $1 $2 $3 $4
+#				 $1 $2 $3 $4
 # ./check_memory -w 85 -c 95
 print_help() {
     echo "Usage:"

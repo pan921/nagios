@@ -1,0 +1,40 @@
+#!/bin/bash
+#
+# Nagios return codes
+STATE_OK=0
+STATE_WARNING=1
+STATE_CRITICAL=2
+STATE_UNKNOWN=3
+STATE_DEPENDENT=4
+#
+cpus=`cat /proc/cpuinfo | /bin/grep processor | /usr/bin/wc -l `
+users_list=`/usr/bin/who --users | /bin/cut -f1 -d" " | /bin/sort | /bin/sort -u `
+users=`echo $users_list | /usr/bin/wc -w `
+users_lst=`echo $users_list`
+#
+case "$cpus" in
+    16)
+	warn_level=5
+	crit_level=9
+        ;;
+    20)
+	warn_level=6
+	crit_level=11
+        ;;
+    *)
+	warn_level=3
+        crit_level=5
+        ;;
+esac
+
+if [[ "$users" -lt "$warn_level" ]]; then
+    echo "Users OK - $users users currently logged in|cpu=$cpus;w=$warn_level;c=$crit_level;Users list: $users_lst"
+    exit $STATE_OK;
+elif [[ "$users" -lt "$crit_level" ]]; then
+    echo "Users WARNING - $users users currently logged in|cpu=$cpus;w=$warn_level;c=$crit_level;Users list: $users_lst"
+    exit $STATE_WARNING;
+else
+    echo "Users CRITICAL - $users users currently logged in|cpu=$cpus;w=$warn_level;c=$crit_level;Users list: $users_lst"
+    exit $STATE_CRITICAL;
+fi
+

@@ -1,105 +1,105 @@
-#!/bin/bash                                                                                           
-#                                                                                                     
-# A way to create a file containing the output of smartctl                                            
-# is to add an cron entry like the following (every day at 5:04):                                     
-# 4 5 * * * sh -c "/usr/local/etc/cron_disks_health"                                                  
-#                                                                                                     
-LOGFILE=/var/tmp/disks_health.log                                                                     
-LOGFIL2=/var/tmp/disks_health2.log                                                                    
-MEGACLI="/opt/MegaRAID/MegaCli/MegaCli64"                                                             
-SMARTCTL="/usr/sbin/smartctl"                                                                         
-ARCCONF="/opt/ibm/sbin/arcconf"                                                                       
-let ONES_A_MONTH=`date +%-d%H%M`                                                                      
-#                                                                                                     
-if [[ -e "/var/tmp/disks_health.header" ]] ; then                                                     
-    cat /var/tmp/disks_health.header                                                1>$LOGFILE 2>&1   
-    SystemProductName=`head -1 $LOGFILE`                                                              
-else                                                                                                  
-    SystemProductName=`/usr/sbin/dmidecode --string system-product-name | \                           
-        sed -e "/x3550/s/\s\+-\[.*\]-//g" -e "/IBM/s/\s\+-\[.*\]-//g" `                               
-    echo $SystemProductName                                                         1>$LOGFILE 2>&1   
-    echo hostname: `/bin/hostname` date:`date`                                     1>>$LOGFILE 2>&1   
-    echo system-product-name: `/usr/sbin/dmidecode --string system-product-name`   1>>$LOGFILE 2>&1   
-    echo system-serial-number: `/usr/sbin/dmidecode --string system-serial-number` 1>>$LOGFILE 2>&1   
-    echo bios-version: `/usr/sbin/dmidecode --string bios-version`                 1>>$LOGFILE 2>&1   
-fi                                                                                                    
-#                                                                                                     
-case $SystemProductName in                                                                            
-        "IBM eServer BladeCenter HS21")                                                               
-                if [[ ! -x "$SMARTCTL" ]] ; then                                                      
-                        echo "WARNING: File $SMARTCTL not found"             1>>$LOGFILE 2>&1         
-                        exit 1                                                                        
-                        fi                                                                            
-                echo === IBM HS21 /dev/sda ================================= 1>>$LOGFILE 2>&1         
-                $SMARTCTL --all /dev/sda                                     1>>$LOGFILE 2>&1         
-                echo === IBM HS21 /dev/sdb ================================= 1>>$LOGFILE 2>&1         
-                $SMARTCTL --all /dev/sdb                                     1>>$LOGFILE 2>&1         
-                echo ======================================================= 1>>$LOGFILE 2>&1         
-#               if 12/mm/yy 03:55 - 12/mm/yy 06:55                                                    
-                if [[ $ONES_A_MONTH -ge 120355 && $ONES_A_MONTH -le 120655 ]]; then                   
-                        echo $SMARTCTL --test short /dev/sda === `date`       1>>$LOGFILE 2>&1        
-                        $SMARTCTL --test short /dev/sda                       1>>$LOGFILE 2>&1        
-                        fi                                                                            
-#               if 14/mm/yy 03:55 - 14/mm/yy 06:55                                                    
-                if [[ $ONES_A_MONTH -ge 140355 && $ONES_A_MONTH -le 140655 ]]; then                   
-                        echo $SMARTCTL --test short /dev/sdb === `date`       1>>$LOGFILE 2>&1        
-                        $SMARTCTL --test short /dev/sdb                       1>>$LOGFILE 2>&1        
-                        fi                                                                            
-                ;;                                                                                    
-        "PowerEdge C6220 II" | "PowerEdge C6220")                                                     
-                if [[ ! -x "$MEGACLI" ]] ; then                                                       
-                        echo "WARNING: File $MEGACLI not found"              1>>$LOGFILE 2>&1         
-                        exit 1                                                                        
-                        fi                                                                            
-                echo === DELL C6220 LdInfo ================================= 1>>$LOGFILE 2>&1         
-                $MEGACLI -LdInfo -LALL -aALL -NoLog                          1>>$LOGFILE 2>&1         
-                echo === DELL C6220 PdList ================================= 1>>$LOGFILE 2>&1         
-                $MEGACLI -PdList       -aALL -NoLog                          1>>$LOGFILE 2>&1         
-                echo ======================================================= 1>>$LOGFILE 2>&1         
-                ;;                                                                                    
-        "System x3550 M3")                                                                            
-                if [[ ! -x "$MEGACLI" ]] ; then                                                       
-                        echo "WARNING: File $MEGACLI not found"              1>>$LOGFILE 2>&1         
-                        exit 1                                                                        
-                        fi                                                                            
-                echo === IBM System x3550 M3 LdInfo ======================== 1>>$LOGFILE 2>&1         
-                $MEGACLI -LdInfo -LALL -aALL -NoLog                          1>>$LOGFILE 2>&1         
-                echo === IBM System x3550 M3 PdList ======================== 1>>$LOGFILE 2>&1         
-                $MEGACLI -PdList       -aALL -NoLog                          1>>$LOGFILE 2>&1         
-                echo ======================================================= 1>>$LOGFILE 2>&1         
-                ;;                                                                                    
-        "IBM System x3650")                                                                           
-                echo === IBM System x3650 ================================== 1>>$LOGFILE 2>&1         
-                cp $LOGFILE $LOGFIL2                                                                  
-                CTRL=`/sbin/lspci | grep "AAC-RAID" `                                                 
-                if [[ -n $CTRL ]] ; then                                                              
-                        if [[ ! -x "$ARCCONF" ]] ; then                                               
-                                echo "WARNING: File $ARCCONF not found"      1>>$LOGFILE 2>&1         
-                                exit 1                                                                
-                                fi
-                        echo === $CTRL ===== GETCONFIG ===================== 1>>$LOGFILE 2>&1
-                        $ARCCONF GETCONFIG 1                                 1>>$LOGFILE 2>&1
-                        rm -f UcliEvt.log
-                        fi
-                echo ======================================================= 1>>$LOGFILE 2>&1
+#!/bin/bash
+#
+# A way to create a file containing the output of smartctl
+# is to add an cron entry like the following (every day at 5:04):
+# 4 5 * * * sh -c "/usr/local/etc/cron_disks_health"
+#
+LOGFILE=/var/tmp/disks_health.log
+LOGFIL2=/var/tmp/disks_health2.log
+MEGACLI="/opt/MegaRAID/MegaCli/MegaCli64"
+SMARTCTL="/usr/sbin/smartctl"
+ARCCONF="/opt/ibm/sbin/arcconf"
+let ONES_A_MONTH=`date +%-d%H%M`
+#
+if [[ -e "/var/tmp/disks_health.header" ]] ; then
+    cat /var/tmp/disks_health.header                                                1>$LOGFILE 2>&1
+    SystemProductName=`head -1 $LOGFILE`
+else
+    SystemProductName=`/usr/sbin/dmidecode --string system-product-name | \
+        sed -e "/x3550/s/\s\+-\[.*\]-//g" -e "/IBM/s/\s\+-\[.*\]-//g" `
+    echo $SystemProductName                                                         1>$LOGFILE 2>&1
+    echo hostname: `/bin/hostname` date:`date`                                     1>>$LOGFILE 2>&1
+    echo system-product-name: `/usr/sbin/dmidecode --string system-product-name`   1>>$LOGFILE 2>&1
+    echo system-serial-number: `/usr/sbin/dmidecode --string system-serial-number` 1>>$LOGFILE 2>&1
+    echo bios-version: `/usr/sbin/dmidecode --string bios-version`                 1>>$LOGFILE 2>&1
+fi
+#
+case $SystemProductName in
+	"IBM eServer BladeCenter HS21")
+		if [[ ! -x "$SMARTCTL" ]] ; then
+			echo "WARNING: File $SMARTCTL not found"             1>>$LOGFILE 2>&1
+			exit 1
+			fi
+		echo === IBM HS21 /dev/sda ================================= 1>>$LOGFILE 2>&1
+		$SMARTCTL --all /dev/sda                                     1>>$LOGFILE 2>&1
+		echo === IBM HS21 /dev/sdb ================================= 1>>$LOGFILE 2>&1
+		$SMARTCTL --all /dev/sdb                                     1>>$LOGFILE 2>&1
+		echo ======================================================= 1>>$LOGFILE 2>&1
+#		if 12/mm/yy 03:55 - 12/mm/yy 06:55
+		if [[ $ONES_A_MONTH -ge 120355 && $ONES_A_MONTH -le 120655 ]]; then
+			echo $SMARTCTL --test short /dev/sda === `date`       1>>$LOGFILE 2>&1
+			$SMARTCTL --test short /dev/sda                       1>>$LOGFILE 2>&1
+			fi
+#		if 14/mm/yy 03:55 - 14/mm/yy 06:55
+		if [[ $ONES_A_MONTH -ge 140355 && $ONES_A_MONTH -le 140655 ]]; then
+			echo $SMARTCTL --test short /dev/sdb === `date`       1>>$LOGFILE 2>&1
+			$SMARTCTL --test short /dev/sdb                       1>>$LOGFILE 2>&1
+			fi
+		;;
+	"PowerEdge C6220 II" | "PowerEdge C6220")
+		if [[ ! -x "$MEGACLI" ]] ; then
+			echo "WARNING: File $MEGACLI not found"              1>>$LOGFILE 2>&1
+			exit 1
+			fi
+		echo === DELL C6220 LdInfo ================================= 1>>$LOGFILE 2>&1
+		$MEGACLI -LdInfo -LALL -aALL -NoLog                          1>>$LOGFILE 2>&1
+		echo === DELL C6220 PdList ================================= 1>>$LOGFILE 2>&1
+		$MEGACLI -PdList       -aALL -NoLog                          1>>$LOGFILE 2>&1 
+		echo ======================================================= 1>>$LOGFILE 2>&1
+		;;
+	"System x3550 M3")
+		if [[ ! -x "$MEGACLI" ]] ; then
+			echo "WARNING: File $MEGACLI not found"              1>>$LOGFILE 2>&1
+			exit 1
+			fi
+		echo === IBM System x3550 M3 LdInfo ======================== 1>>$LOGFILE 2>&1
+		$MEGACLI -LdInfo -LALL -aALL -NoLog                          1>>$LOGFILE 2>&1
+		echo === IBM System x3550 M3 PdList ======================== 1>>$LOGFILE 2>&1
+		$MEGACLI -PdList       -aALL -NoLog                          1>>$LOGFILE 2>&1 
+		echo ======================================================= 1>>$LOGFILE 2>&1
+		;;
+	"IBM System x3650")
+		echo === IBM System x3650 ================================== 1>>$LOGFILE 2>&1
+		cp $LOGFILE $LOGFIL2
+		CTRL=`/sbin/lspci | grep "AAC-RAID" `
+		if [[ -n $CTRL ]] ; then
+			if [[ ! -x "$ARCCONF" ]] ; then
+				echo "WARNING: File $ARCCONF not found"      1>>$LOGFILE 2>&1
+				exit 1
+				fi
+			echo === $CTRL ===== GETCONFIG ===================== 1>>$LOGFILE 2>&1
+			$ARCCONF GETCONFIG 1                                 1>>$LOGFILE 2>&1
+			rm -f UcliEvt.log
+			fi
+		echo ======================================================= 1>>$LOGFILE 2>&1
 
-                CTRL=`/sbin/lspci | grep "MegaRAID" `
-                if [[ -n $CTRL ]] ; then
-                        if [[ ! -x "$MEGACLI" ]] ; then
-                                echo "WARNING: File $MEGACLI not found"      1>>$LOGFIL2 2>&1
-                                exit 1
-                                fi
-                        echo === $CTRL ===== LdInfo ======================== 1>>$LOGFIL2 2>&1
-                        $MEGACLI -LdInfo -LALL -aALL -NoLog                  1>>$LOGFIL2 2>&1
-                        echo === $CTRL ===== PdList ======================== 1>>$LOGFIL2 2>&1
-                        $MEGACLI -PdList       -aALL -NoLog                  1>>$LOGFIL2 2>&1
-                        fi
-                echo ======================================================= 1>>$LOGFIL2 2>&1
-                ;;
-        *)
-                echo === unassigned case for $SystemProductName ============ 1>>$LOGFILE 2>&1
-                ;;
-        esac
+		CTRL=`/sbin/lspci | grep "MegaRAID" `
+		if [[ -n $CTRL ]] ; then
+			if [[ ! -x "$MEGACLI" ]] ; then
+				echo "WARNING: File $MEGACLI not found"      1>>$LOGFIL2 2>&1
+				exit 1
+				fi
+			echo === $CTRL ===== LdInfo ======================== 1>>$LOGFIL2 2>&1
+			$MEGACLI -LdInfo -LALL -aALL -NoLog                  1>>$LOGFIL2 2>&1
+			echo === $CTRL ===== PdList ======================== 1>>$LOGFIL2 2>&1
+			$MEGACLI -PdList       -aALL -NoLog                  1>>$LOGFIL2 2>&1 
+			fi
+		echo ======================================================= 1>>$LOGFIL2 2>&1
+		;;
+	*)
+		echo === unassigned case for $SystemProductName ============ 1>>$LOGFILE 2>&1
+		;;
+	esac
 
 echo =============== Health check finished o.k. ============================ 1>>$LOGFILE 2>&1
 #

@@ -1,0 +1,19 @@
+#!/bin/bash
+#
+#45 06 * * Mon root /usr/lib64/nagios/plugins/cron_bios_parameters
+#
+LOGFILE=/var/tmp/bios_parameters.log
+PATH=$PATH:/usr/sbin/
+
+if [[ -e "/var/tmp/disks_health.header" ]] ; then
+    SystemProductName=$(head -1 /var/tmp/disks_health.header)
+else
+    SystemProductName=$(/usr/sbin/dmidecode --string system-product-name)
+fi
+
+case $SystemProductName in
+        "PowerEdge C6220 II" | "PowerEdge C6220")
+		/opt/dell/pec/setupbios setting save 1>$LOGFILE 2>&1
+		;;
+        esac
+#

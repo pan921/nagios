@@ -1,0 +1,49 @@
+#!/bin/bash
+#
+# Nagios return codes
+STATE_OK=0
+STATE_WARNING=1
+STATE_CRITICAL=2
+STATE_UNKNOWN=3
+STATE_DEPENDENT=4
+# default parameters
+warn_level=400
+crit_level=500
+#
+# while test -n "$1"; do
+#     case "$1" in
+#         -w)
+#             warn_level=$2
+#             shift
+#             ;;
+#         -c)
+#             crit_level=$2
+#             shift
+#             ;;
+#         *)
+#             echo "Unknown Argument: $1"
+#             echo "Usage:"
+#             echo "[-w] Warning level as a percentage"
+#             echo "[-c] Critical level as a percentage"
+#             exit $STATE_UNKNOWN
+#             ;;
+#     esac
+#     shift
+# done
+#
+load=`cat /proc/loadavg | awk '{print $1}'`
+msg=`cat /proc/loadavg | awk '{print $1,$2,$3}'`
+cpus=`cat /proc/cpuinfo | grep processor | wc -l`
+result=`awk "BEGIN {print int( $load * 100 / $cpus ) }" `
+#
+if [[ "$result" -lt "$warn_level" ]]; then
+    echo "OK: average load - $msg|cpus=$cpus;w=$warn_level;c=$crit_level"
+    exit $STATE_OK;
+elif [[ "$result" -lt "$crit_level" ]]; then
+    echo "WARNING: average load - $msg|cpus=$cpus;w=$warn_level;c=$crit_level"
+    exit $STATE_WARNING;
+else
+    echo "CRITICAL: average load - $msg|cpus=$cpus;w=$warn_level;c=$crit_level"
+    exit $STATE_CRITICAL;
+fi
+#

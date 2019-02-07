@@ -1,0 +1,267 @@
+#!/bin/bash
+#
+LOGFIL1=/var/tmp/disks_health.log
+LOGFIL2=/var/tmp/disks_health2.log
+
+LOGFILE=$LOGFIL1
+if [[ ! -a "$LOGFILE" ]] ; then
+        echo "RAID Monitoring Script v2.22"
+        exit 0
+fi
+#
+# Nagios return codes
+STATE_OK=0
+STATE_WARNING=1
+STATE_CRITICAL=2
+STATE_UNKNOWN=3
+STATE_DEPENDENT=4
+#
+analize_smartctl() {
+	echo export VAR_VRsda=0   >/tmp/param$$.cmd
+	echo export VAR_VRsdb=0  >>/tmp/param$$.cmd
+	echo export VAR_DEFsda=0 >>/tmp/param$$.cmd
+	echo export VAR_DEFsdb=0 >>/tmp/param$$.cmd
+	cat $LOGFILE | grep -e ===== -e Product: -e Vendor: -e read: -e write: -e verify: \
+		-e "Serial number" -e "SMART Health Status" -e "Current Drive Temperature" \
+		-e "defect list" -e "error count:" -e "# 1  Background" | grep -v "Self Test has begun" | \
+		grep -v "check finished" | tr -s "=" | tr -s " " | \
+		sed -e "/= IBM HS21 /s/= IBM HS21 /VAR_HDD=/g" \
+		-e "/VAR_HDD/s/\(VAR_[^ ]\+\).*/\1/" \
+		-e "/VAR_HDD/s/.dev.//" \
+		-e "/Vendor/s/Vendor: /VAR_VND$\{VAR_HDD\}=/g" \
+		-e "/Product/s/Product: /VAR_PRD$\{VAR_HDD\}=/g" \
+		-e "/Serial number/s/Serial number: /VAR_SN$\{VAR_HDD\}=/g" \
+		-e "/SMART Health Status/s/SMART Health Status: /VAR_HLH$\{VAR_HDD\}=/g" \
+		-e "/Current Drive Temperature/s/Current Drive Temperature: /VAR_TMP$\{VAR_HDD\}=/g" \
+		-e "/defect list/s/.*defect list: /VAR_DEF$\{VAR_HDD\}=/g" \
+		-e "/read/s/read: [0-9]\+ [0-9]\+ [0-9]\+ [0-9]\+ [0-9]\+ [0-9.]\+ /VAR_RD$\{VAR_HDD\}=/g" \
+		-e "/write/s/write: [0-9]\+ [0-9]\+ [0-9]\+ [0-9]\+ [0-9]\+ [0-9.]\+ /VAR_WR$\{VAR_HDD\}=/g" \
+		-e "/verify/s/verify: [0-9]\+ [0-9]\+ [0-9]\+ [0-9]\+ [0-9]\+ [0-9.]\+ /VAR_VR$\{VAR_HDD\}=/g" \
+		-e "/Non-medium error count/s/Non-medium error count: /VAR_ERR$\{VAR_HDD\}=/g" \
+		-e "/Background short/s/.*Background short /VAR_BG$\{VAR_HDD\}=/g" \
+                       -e "/Background long/s/.*Background long /VAR_BG$\{VAR_HDD\}=/g" | \
+		sed -e "/VAR/s/\(VAR_[^ ]\+\).*/export \1/" -e "/^=/d" >>/tmp/param$$.cmd
+	chmod 755 /tmp/param$$.cmd
+	. /tmp/param$$.cmd
+	rm -f /tmp/param$$.cmd
+#	$VAR_DEFsda, $VAR_DEFsdb - Elements in grown defect list:
+#	$VAR_ERRsda, $VAR_ERRsdb - Non-medium error count:
+#	$VAR_RDsda, $VAR_RDsdb - Total read uncorrected errors
+#	$VAR_WRsda, $VAR_WRsdb - Total write uncorrected errors
+#	$VAR_VRsda, $VAR_VRsdb - Total verify uncorrected errors
+	let ERR_DEF=3000
+	let ERR_ERR=10000
+	let ERR_RD=1000
+	let ERR_WR=1000
+	let ERR_VR=1000
+	if [[ $VAR_HLHsda == "DATA" ]]; then VAR_HLHsda=FAILURE; fi
+	if [[ $VAR_HLHsdb == "DATA" ]]; then VAR_HLHsdb=FAILURE; fi
+	if [[ $VAR_HLHsda != "OK" || $VAR_HLHsdb != "OK" ]]; then
+		echo -n "CRITICAL: "
+		echo -n sda $VAR_HLHsda: ${VAR_TMPsda}C, Errors: $VAR_DEFsda/$VAR_ERRsda/$VAR_RDsda/$VAR_WRsda/$VAR_VRsda", "
+		echo -n Model:$VAR_PRDsda, SN:$VAR_SNsda, $VAR_BGsda", "
+		echo -n sdb $VAR_HLHsdb: ${VAR_TMPsdb}C, Errors: $VAR_DEFsdb/$VAR_ERRsdb/$VAR_RDsdb/$VAR_WRsdb/$VAR_VRsdb", "
+		echo    Model:$VAR_PRDsdb, SN:$VAR_SNsdb, $VAR_BGsdb
+		exit $STATE_CRITICAL
+		fi
+	if [[ $VAR_BGsda != "Completed" && $VAR_BGsda != "Self" ]]; then
+		echo -n "WARNING: "
+		echo -n sda $VAR_HLHsda: ${VAR_TMPsda}C, Errors: $VAR_DEFsda/$VAR_ERRsda/$VAR_RDsda/$VAR_WRsda/$VAR_VRsda", "
+		echo -n Model:$VAR_PRDsda, SN:$VAR_SNsda, $VAR_BGsda", "
+		echo -n sdb $VAR_HLHsdb: ${VAR_TMPsdb}C, Errors: $VAR_DEFsdb/$VAR_ERRsdb/$VAR_RDsdb/$VAR_WRsdb/$VAR_VRsdb", "
+		echo    Model:$VAR_PRDsdb, SN:$VAR_SNsdb, $VAR_BGsdb
+		exit $STATE_WARNING
+		fi
+#	if [[ $VAR_DEFsda -ge $ERR_DEF || $VAR_ERRsda -ge $ERR_ERR || $VAR_RDsda -ge $ERR_RD || $VAR_WRsda -ge $ERR_WR || $VAR_VRsda -ge $ERR_VR ]]; then
+#		echo -n "WARNING: "
+#		echo -n sda $VAR_HLHsda: ${VAR_TMPsda}C, Errors: $VAR_DEFsda/$VAR_ERRsda/$VAR_RDsda/$VAR_WRsda/$VAR_VRsda", "
+#		echo -n Model:$VAR_PRDsda, SN:$VAR_SNsda, $VAR_BGsda", "
+#		echo -n sdb $VAR_HLHsdb: ${VAR_TMPsdb}C, Errors: $VAR_DEFsdb/$VAR_ERRsdb/$VAR_RDsdb/$VAR_WRsdb/$VAR_VRsdb", "
+#		echo    Model:$VAR_PRDsdb, SN:$VAR_SNsdb, $VAR_BGsdb
+#		exit $STATE_WARNING
+#		fi
+	if [[ $VAR_BGsdb != "Completed" && $VAR_BGsdb != "Self" ]]; then
+		echo -n "WARNING: "
+		echo -n sda $VAR_HLHsda: ${VAR_TMPsda}C, Errors: $VAR_DEFsda/$VAR_ERRsda/$VAR_RDsda/$VAR_WRsda/$VAR_VRsda", "
+		echo -n Model:$VAR_PRDsda, SN:$VAR_SNsda, $VAR_BGsda", "
+		echo -n sdb $VAR_HLHsdb: ${VAR_TMPsdb}C, Errors: $VAR_DEFsdb/$VAR_ERRsdb/$VAR_RDsdb/$VAR_WRsdb/$VAR_VRsdb", "
+		echo    Model:$VAR_PRDsdb, SN:$VAR_SNsdb, $VAR_BGsdb
+		exit $STATE_WARNING
+		fi
+#	if [[ $VAR_DEFsdb -ge $ERR_DEF || $VAR_ERRsdb -ge $ERR_ERR || $VAR_RDsdb -ge $ERR_RD || $VAR_WRsdb -ge $ERR_WR || $VAR_VRsdb -ge $ERR_VR ]]; then
+#		echo -n "WARNING: "
+#		echo -n sda $VAR_HLHsda: ${VAR_TMPsda}C, Errors: $VAR_DEFsda/$VAR_ERRsda/$VAR_RDsda/$VAR_WRsda/$VAR_VRsda", "
+#		echo -n Model:$VAR_PRDsda, SN:$VAR_SNsda, $VAR_BGsda", "
+#		echo -n sdb $VAR_HLHsdb: ${VAR_TMPsdb}C, Errors: $VAR_DEFsdb/$VAR_ERRsdb/$VAR_RDsdb/$VAR_WRsdb/$VAR_VRsdb", "
+#		echo    Model:$VAR_PRDsdb, SN:$VAR_SNsdb, $VAR_BGsdb
+#		exit $STATE_WARNING
+#		fi
+	if [[ $VAR_HLHsda == "OK" && $VAR_HLHsdb == "OK" ]]; then
+		echo -n sda $VAR_HLHsda: ${VAR_TMPsda}C, Errors: $VAR_DEFsda/$VAR_ERRsda/$VAR_RDsda/$VAR_WRsda/$VAR_VRsda", "
+		echo    sdb $VAR_HLHsdb: ${VAR_TMPsdb}C, Errors: $VAR_DEFsdb/$VAR_ERRsdb/$VAR_RDsdb/$VAR_WRsdb/$VAR_VRsdb
+		exit $STATE_OK
+		fi
+	echo " "
+}
+# ==========================================================================
+analize_megaraid() {
+	CH_RAID=`cat $LOGFILE | grep State | grep -v "Foreign State:" | awk '{print $3}'`
+	WARNING=`cat $LOGFILE | grep -e Error -e "Failure Count" | grep -v "Media Error Count: 0" | \
+		grep -v "Other Error Count: 0" | grep -v "Predictive Failure Count: 0" `
+	REPORT01=`cat $LOGFILE | grep -e "Virtual Drive:" -e Size -e State | grep -v "Coerced Size" | grep -v "Foreign State" | \
+		grep -v Parity | grep -v Strip | grep -v "Raw Size" | grep -v "Non Coerced Size" | tr -s " " | \
+		sed -e "s/Virtual Drive: /VD/g" -e "s/Size ://g" -e "s/(Target Id: .*)/:/g" -e "s/State : \(.*\)/: \1,/g" `
+	REPORT02=" "
+	REPORT03=`cat $LOGFILE | grep -e "Error Count" -e "Slot Number" -e "Firmware state" -e "Inquiry Data" -e "Enclosure Device" | \
+		tr -s " " | sed -e "/Enclosure/N;N;N;N;N;s/\(.*\)\n\(.*\)\n\(.*\)\n\(.*\)\n\(.*\)\n\(.*\)/\1 \2 \6 \3 \4 \5/g" \
+		-e "/Media Error Count: 0 Other Error Count: 0 Firmware state: Online/d" \
+		-e "/Media Error Count: 0 Other Error Count: 0 Firmware state: Hotspare/d" \
+		-e "s/Enclosure Device ID/Encl/g" -e "s/Slot Number/Slot/g" -e "s/Media Error Count/Errors/" \
+		-e "s/Other Error Count:/\//" -e "s/Firmware state:/,/g" -e "s/Inquiry Data://g" -e "s/: /:/g" | tr -s " " `
+	for NEXT_RAID in $CH_RAID; do
+		if [[ "$NEXT_RAID" != "Optimal" ]]; then
+			echo "MegaRAID CRITICAL:" $REPORT01 "|" $REPORT03
+			MEGARAID_STATE=$STATE_CRITICAL
+			return
+		fi
+	done
+
+	cat $LOGFILE | grep -e "Error Count" -e "Slot Number" -e "Firmware state" -e "Inquiry Data" -e "Enclosure Device" -e "Failure Count" | \
+	   tr -s " " | sed -e "/Enclosure Device ID:/s/Enclosure Device ID: \([0-9]\+\)/VAR_ENCL=\1;ENCL_LIST=$\{ENCL_LIST\}_\1/g" \
+	   -e "/Slot Number/s/Slot Number: \([0-9]\+\)/VAR_SLOT=\1;ENCL_LIST=$\{ENCL_LIST\}-\1/g" \
+           -e "/Media Error Count/s/Media Error Count: \(.\+\)/export VAR_ERR1$\{VAR_ENCL\}$\{VAR_SLOT\}=\"\1\"/" \
+           -e "/Other Error Count/s/Other Error Count: \(.\+\)/export VAR_ERR2$\{VAR_ENCL\}$\{VAR_SLOT\}=\"\1\"/" \
+           -e "/Predictive Failure Count/s/Predictive Failure Count: \(.\+\)/export VAR_ERR3$\{VAR_ENCL\}$\{VAR_SLOT\}=\"\1\"/" \
+           -e "/Inquiry Data/s/Inquiry Data: \(.\+\)/export VAR_MODEL$\{VAR_ENCL\}$\{VAR_SLOT\}=\"\1\"/" \
+           -e "/Firmware state/s/, Spun Up//g" \
+           -e "/Firmware state/s/Firmware state: \(.\+\).*/export VAR_STATE$\{VAR_ENCL\}$\{VAR_SLOT\}=\"\1\"/" >/tmp/param$$.cmd
+        chmod 755 /tmp/param$$.cmd
+        . /tmp/param$$.cmd
+	env | grep VAR_ >/tmp/param$$.cmd
+	REPORT02=""; REPORT03=""
+	MIN1=1; MIN2=1; MIN3=1; MAX1=50000; MAX2=50000; MAX3=10000                 # minimum and maximum level for different errors 
+	ENCL_VAR=`echo $ENCL_LIST | tr _ " " `
+	for ENSL_NUM in $ENCL_VAR
+		do
+		ENCL_NUM=`echo $ENSL_NUM | sed -e "s/\([0-9]\+\)-[0-9]\+/\1/" `
+		SLOT_NUM=`echo $ENSL_NUM | sed -e "s/[0-9]\+-\([0-9]\+\)/\1/" `
+		ENSL=${ENCL_NUM}${SLOT_NUM}
+		ERROR1=`env | grep -e VAR_ERR1${ENSL}"=" | sed -e "s/VAR_ERR.*=//" `
+		ERROR2=`env | grep -e VAR_ERR2${ENSL}"=" | sed -e "s/VAR_ERR.*=//" `
+		ERROR3=`env | grep -e VAR_ERR3${ENSL}"=" | sed -e "s/VAR_ERR.*=//" `
+		MODEL=`env | grep -e VAR_MODEL${ENSL}"=" | sed -e "s/VAR_MOD.*=//" `
+		STATE=`env | grep -e VAR_STATE${ENSL}"=" | sed -e "s/VAR_STA.*=//" `
+		REPORT="Encl: $ENCL_NUM, Slot: $SLOT_NUM, Models: $MODEL, Status: $STATE, Errors: $ERROR1/$ERROR2/$ERROR3 "
+		CRIT_SLOT=0
+
+#		if [[ (-n $ERROR1 && $ERROR1 -ge $MAX1 ) || (-n $ERROR2 && $ERROR2 -ge $MAX2 ) || (-n $ERROR3 && $ERROR3 -ge $MAX3 ) ]]; then 
+                if [[ (-n $STATE && $STATE = "Failed") || (-n $STATE && STATE = "Unconfigured(bad)") ]]; then
+			CRIT_SLOT=1; REPORT02="$REPORT02 $REPORT"; fi
+#		if [[ (-n $ERROR1 && $ERROR1 -ge $MIN1 ) || (-n $ERROR2 && $ERROR2 -ge $MIN2 ) || (-n $ERROR3 && $ERROR3 -ge $MIN3 ) ]]; then 
+                if [[ -n $STATE && $STATE = "Unconfigured(good)" ]]; then
+			if [[ $CRIT_SLOT -eq 0 ]]; then REPORT03="$REPORT03 $REPORT"; fi ; fi
+		done
+        rm -f /tmp/param$$.cmd
+
+	if [[ -n $REPORT02 ]]; then
+		echo "MegaRAID CRITICAL:" $REPORT01 "|" $REPORT02 $REPORT03
+		MEGARAID_STATE=$STATE_CRITICAL
+		return
+	elif [[ -n $REPORT03 ]]; then
+		echo "MegaRAID WARNING:" $REPORT01 "|" $REPORT02 $REPORT03
+		MEGARAID_STATE=$STATE_WARNING
+		return
+	else
+		echo "MegaRAID OK" $REPORT01 "|" $REPORT03
+		MEGARAID_STATE=$STATE_OK
+		return
+	fi
+}
+# ==========================================================================
+analize_serveraid() {
+	cat $LOGFILE | grep -e "Controller Status" -e "Logical drive name" -e "Status of logical drive" \
+                -e "Device #" -e State -e Model -e "Serial number" -e "Reported Location" | tr -s " " | \
+                sed -e "/Controller Status/s/Controller Status : /export CTL_STAT=/g" \
+                -e "/Controller Model/s/Controller Model : \(.\+\)/export CTL_MODEL=\"\1\"/g" \
+                -e "/Logical drive name/s/Logical drive name : \(.\+\)/export VAR_LD=\"\1\"/g" \
+                -e "/Status of logical drive/s/Status of logical drive : \(.\+\)/export VAR_LD_STAT=\"\1\"/g" \
+                -e "s/Device #\(.\+\)/export VAR_DEVICE=\1/g" \
+                -e "/Reported/s/Reported Location : Enclosure \(.\+\), Slot \(.\+\)/export VAR_SLOT$\{VAR_DEVICE\}=Enc\1_Slot\2/" \
+                -e "/State/s/State : \(.\+\)/export VAR_STAT$\{VAR_DEVICE\}=\"\1\"/" \
+                -e "/Model/s/Model : \(.\+\)/export VAR_MDL$\{VAR_DEVICE\}=\"\1\"/" \
+                -e "/Serial number/s/Serial number : \(.\+\)/export VAR_SN$\{VAR_DEVICE\}=\"\1\"/" >/tmp/param$$.cmd
+                chmod 755 /tmp/param$$.cmd
+                . /tmp/param$$.cmd
+                rm -f /tmp/param$$.cmd
+
+		if [[ "$CTL_STAT" != "Okay" ]]; then
+			echo -n ServeRAID CRITICAL. Controller: $CTL_STAT, Logical drive $VAR_LD: $VAR_LD_STAT,
+			if [[ -n $VAR_SLOT0 ]]; then echo -n ".$VAR_SLOT0: $VAR_STAT0 ( $VAR_MDL0, SN:$VAR_SN0 ), "; fi
+			if [[ -n $VAR_SLOT1 ]]; then echo -n ".$VAR_SLOT1: $VAR_STAT1 ( $VAR_MDL1, SN:$VAR_SN1 ), "; fi
+			if [[ -n $VAR_SLOT2 ]]; then echo -n ".$VAR_SLOT2: $VAR_STAT2 ( $VAR_MDL2, SN:$VAR_SN2 ), "; fi
+			if [[ -n $VAR_SLOT3 ]]; then echo -n ".$VAR_SLOT3: $VAR_STAT3 ( $VAR_MDL3, SN:$VAR_SN3 ), "; fi
+			if [[ -n $VAR_SLOT4 ]]; then echo -n ".$VAR_SLOT4: $VAR_STAT4 ( $VAR_MDL4, SN:$VAR_SN4 ), "; fi
+			if [[ -n $VAR_SLOT5 ]]; then echo -n ".$VAR_SLOT5: $VAR_STAT5 ( $VAR_MDL5, SN:$VAR_SN5 ), "; fi
+			echo " "
+			SERVERAID_STATE=$STATE_CRITICAL
+			return
+		fi
+		for NEXT_STAT in "$VAR_STAT0" "$VAR_STAT1" "$VAR_STAT2" "$VAR_STAT3" "$VAR_STAT4" "$VAR_STAT5"; do
+		    VAR_STAT=` echo $NEXT_STAT | sed -e "s/ //" `
+		    if [[ $VAR_STAT != "" ]]; then
+		    if [[ $VAR_STAT != "Online" ]]; then
+		    if [[ $VAR_STAT != "HotSpare" ]]; then
+			echo -n ServeRAID WARNING. Controller: $CTL_STAT, Logical drive $VAR_LD: $VAR_LD_STAT," "
+			if [[ -n $VAR_SLOT0 ]]; then echo -n ".$VAR_SLOT0: $VAR_STAT0 ( $VAR_MDL0, SN:$VAR_SN0 ), "; fi
+			if [[ -n $VAR_SLOT1 ]]; then echo -n ".$VAR_SLOT1: $VAR_STAT1 ( $VAR_MDL1, SN:$VAR_SN1 ), "; fi
+			if [[ -n $VAR_SLOT2 ]]; then echo -n ".$VAR_SLOT2: $VAR_STAT2 ( $VAR_MDL2, SN:$VAR_SN2 ), "; fi
+			if [[ -n $VAR_SLOT3 ]]; then echo -n ".$VAR_SLOT3: $VAR_STAT3 ( $VAR_MDL3, SN:$VAR_SN3 ), "; fi
+			if [[ -n $VAR_SLOT4 ]]; then echo -n ".$VAR_SLOT4: $VAR_STAT4 ( $VAR_MDL4, SN:$VAR_SN4 ), "; fi
+			if [[ -n $VAR_SLOT5 ]]; then echo -n ".$VAR_SLOT5: $VAR_STAT5 ( $VAR_MDL5, SN:$VAR_SN5 ), "; fi
+			echo " "
+			SERVERAID_STATE=$STATE_WARNING
+			return
+		    fi; fi; fi
+		done
+		echo "ServeRAID OK "
+		SERVERAID_STATE=$STATE_OK
+		return
+}
+
+SystemProductName=`head -1 $LOGFILE`
+SystemHostname=`grep hostname $LOGFILE | sed -e "s/.*hostname: \([a-z0-9]\+\).*/\1/g" `
+SystemSerialNumber=`grep system-serial-number $LOGFILE | sed -e "s/.*system-serial-number: \([A-Z0-9]\+\).*/\1/g" `
+echo -n $SystemHostname s/n:$SystemSerialNumber", "
+case $SystemProductName in
+        "IBM eServer BladeCenter HS21")
+		analize_smartctl
+		;;
+	"PowerEdge C6220 II" | "PowerEdge C6220" | "System x3550 M3")
+                analize_megaraid
+		exit $MEGARAID_STATE
+		;;
+	"IBM System x3650")
+		CTRL=`/sbin/lspci | grep "AAC-RAID" `
+                if [[ -n $CTRL ]] ; then 
+		if [[ $SystemHostname != mzfs001 ]] ; then
+			analize_serveraid
+			fi; fi
+
+		if [[ -a "$LOGFIL2" ]] ; then LOGFILE=$LOGFIL2; fi
+		CTRL=`/sbin/lspci | grep "MegaRAID" `
+                if [[ -n $CTRL ]] ; then 
+			analize_megaraid
+			fi
+
+		if [[ $SERVERAID_STATE -eq $STATE_CRITICAL ]]; then exit $STATE_CRITICAL; fi
+		if [[ $MEGARAID_STATE -eq $STATE_CRITICAL ]];  then exit $STATE_CRITICAL; fi
+		if [[ $SERVERAID_STATE -eq $STATE_WARNING ]];  then exit $STATE_WARNING;  fi
+		if [[ $MEGARAID_STATE -eq $STATE_WARNING ]];   then exit $STATE_WARNING;  fi
+		exit $STATE_OK
+		;;
+        *)
+		echo -n $SystemHostname s/n:$SystemSerialNumber", "
+		echo $SystemProductName === unassigned case ===
+		;;
+	esac
+
